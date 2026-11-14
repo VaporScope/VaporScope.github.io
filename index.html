@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Srayan Talukdar · Portfolio</title>
+  <meta name="description" content="Portfolio of Srayan Talukdar, AI & Data student at Aivancity. Take a seat in an interactive 3D cockpit.">
+  <meta name="theme-color" content="#05070b">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2305070b'/%3E%3Cpath fill='%2362e3f0' d='M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body class="intro-on">
+  <div id="scene" aria-hidden="true"></div>
+
+  <header class="hud hud-tl">
+    <div class="hud-name" data-bind="name">Srayan Talukdar</div>
+    <div class="hud-role" data-bind="role">AI &amp; Data student · Aivancity</div>
+  </header>
+  <nav class="hud hud-bl" id="hud-links" aria-label="Quick links"></nav>
+  <div class="hud hud-bc off" id="hint" role="status"></div>
+  <div class="hud hud-br">Built with Three.js · <a href="#" id="simple-view">Simple view</a></div>
+
+  <section id="os" class="os" hidden aria-label="Portfolio"></section>
+
+  <div id="intro" class="intro">
+    <div class="intro-card">
+      <p class="intro-kicker">Portfolio 2026</p>
+      <h1 data-bind="name">Srayan Talukdar</h1>
+      <p class="intro-sub" data-bind="introLine">AI &amp; Data student at Aivancity, with a background in aircraft maintenance engineering.</p>
+      <p class="intro-hint">Take the jump seat. Best on a computer, with the lights down.</p>
+      <button id="start-btn" class="start-btn" type="button" disabled>Loading cockpit…</button>
+    </div>
+  </div>
+
+  <noscript>
+    <div class="noscript">
+      <h1>Srayan Talukdar</h1>
+      <p>AI &amp; Data student at Aivancity. This portfolio needs JavaScript. You can download my CV:
+        <a href="CV_Srayan_Talukdar_EN.pdf">English</a> · <a href="CV_Srayan_Talukdar_FR.pdf">Français</a></p>
+    </div>
+  </noscript>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
