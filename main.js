@@ -109,11 +109,7 @@ else init3D().catch((err) => fallback(err));
 
 // ---------- 3D ----------
 async function init3D() {
-  const [THREE, { buildCockpit, SCREEN }, { buildSky, HORIZON }] = await Promise.all([
-    import('three'),
-    import('./cockpit.js'),
-    import('./sky.js'),
-  ]);
+  const [THREE, { buildCockpit }, { buildSky }] = await Promise.all([import('three'), import('./cockpit.js'), import('./sky.js')]);
   await fontsReady();
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -122,31 +118,66 @@ async function init3D() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
+  renderer.localClippingEnabled = true;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate = false; // nothing moves, so the shadows are drawn once
   $('#scene').appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(HORIZON, 70, 720);
   const fovFor = () => (innerWidth < innerHeight ? 74 : 58);
-  const camera = new THREE.PerspectiveCamera(fovFor(), innerWidth / innerHeight, 0.02, 3000);
+  const camera = new THREE.PerspectiveCamera(fovFor(), innerWidth / innerHeight, 0.02, 20000);
 
   const sky = buildSky(scene);
-  const cockpit = buildCockpit(scene);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(sky.envScene(), 0.02, 0.1, 15000).texture;
+  pmrem.dispose();
 
-  scene.add(new THREE.HemisphereLight(0xb9c6ff, 0x4a3530, 1.15));
-  const sun = new THREE.DirectionalLight(0xffb07a, 2.6);
-  sun.position.copy(sky.sunDir).multiplyScalar(300);
-  scene.add(sun);
-  const fill = new THREE.DirectionalLight(0xd6defe, 1.2);
-  fill.position.set(0.6, 3, 5);
-  scene.add(fill);
-  const screenGlow = new THREE.PointLight(0x7fdcff, 1.6, 2.4, 2);
-  screenGlow.position.set(0, 1.05, -0.55);
-  scene.add(screenGlow);
+  const cockpit = await buildCockpit(scene, (p) => {
+    startBtn.textContent = `Loading cockpit… ${Math.round(p * 100)}%`;
+  });
+  const SCREEN = cockpit.screenSize;
 
-  const POSE = {
-    intro: { pos: new THREE.Vector3(0, 1.52, 1.25), target: new THREE.Vector3(0, 1.28, -1) },
-    home: { pos: new THREE.Vector3(0, 1.42, 0.62), target: new THREE.Vector3(0, 1.17, -0.95) },
-  };
+  // Low sunset sun, shining in through the windows
+  const sun = new THREE.DirectionalLight(0xffc69e, 2.6);
+  sun.position.copy(cockpit.center).addScaledVector(sky.sunDir, 30);
+  sun.target.position.copy(cockpit.center);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -4.5, right: 4.5, top: 4.5, bottom: -4.5, near: 1, far: 70 });
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.03;
+  scene.add(sun, sun.target);
+  scene.add(new THREE.HemisphereLight(0xb0bde8, 0x3a302c, 0.3));
+  const panelLight = new THREE.PointLight(0xffe4c4, 1.6, 2.6, 2);
+  panelLight.position.copy(cockpit.panelLight);
+  scene.add(panelLight);
+  renderer.shadowMap.needsUpdate = true;
+
+  // Ambient occlusion (soft contact shadows) on computers; skipped on phones for speed.
+  let composer = null;
+  if (!isTouch && innerWidth >= 900) {
+    try {
+      const [{ EffectComposer }, { RenderPass }, { GTAOPass }, { OutputPass }] = await Promise.all([
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/GTAOPass.js'),
+        import('three/addons/postprocessing/OutputPass.js'),
+      ]);
+      composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      const ao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+      ao.updateGtaoMaterial({ radius: 0.3, thickness: 1, distanceExponent: 1.5, scale: 1.2 });
+      composer.addPass(ao);
+      composer.addPass(new OutputPass());
+    } catch (err) {
+      console.warn('Ambient occlusion unavailable:', err);
+      composer = null;
+    }
+  }
+  const render = () => (composer ? composer.render() : renderer.render(scene, camera));
+
+  const POSE = cockpit.poses;
   const camTarget = new THREE.Vector3();
   const applyPose = (p) => {
     camera.position.copy(p.pos);
@@ -209,7 +240,7 @@ async function init3D() {
           autoFocused = true;
           focusScreen();
         }
-      }, 1100);
+      }, 1300);
     });
   }
 
@@ -220,7 +251,7 @@ async function init3D() {
     cockpit.setHover(false);
     renderer.domElement.style.cursor = '';
     const p = screenPose();
-    flyTo(p, 1.4, () => {
+    flyTo(p, 1.5, () => {
       state = 'os';
       applyPose(p);
       const full = forcedFull || smallViewport();
@@ -230,7 +261,7 @@ async function init3D() {
 
   function leaveScreen() {
     state = 'leaving';
-    flyTo(POSE.home, 1.2, () => {
+    flyTo(POSE.home, 1.3, () => {
       state = 'cockpit';
       look.x = look.y = 0;
       setHint('cockpit');
@@ -266,6 +297,7 @@ async function init3D() {
     camera.fov = fovFor();
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
+    if (composer) composer.setSize(innerWidth, innerHeight);
     if (state === 'os') {
       applyPose(screenPose());
       const full = forcedFull || smallViewport();
@@ -292,9 +324,9 @@ async function init3D() {
         if (done) done();
       }
     } else if (state === 'cockpit' || state === 'intro') {
-      const ease2 = Math.min(1, dt * 2.5);
-      look.x += (mouse.x - look.x) * ease2;
-      look.y += (mouse.y - look.y) * ease2;
+      const e2 = Math.min(1, dt * 2.5);
+      look.x += (mouse.x - look.x) * e2;
+      look.y += (mouse.y - look.y) * e2;
       const p = state === 'intro' ? POSE.intro : POSE.home;
       camera.position.copy(p.pos);
       if (!reduceMotion) {
@@ -302,12 +334,12 @@ async function init3D() {
         camera.position.x += Math.sin(t * 1.1) * 0.002;
       }
       camTarget.copy(p.target);
-      camTarget.x += look.x * 0.6;
-      camTarget.y += look.y * 0.35;
+      camTarget.x += look.x * 0.9;
+      camTarget.y += look.y * 0.55;
     }
     camera.lookAt(camTarget);
 
-    sky.update(t, dt);
+    sky.update(t);
     cockpit.update(t, dt, { roll: sky.roll, pitch: sky.pitch, preview: state !== 'os' });
 
     if (state === 'cockpit' && !isTouch) {
@@ -315,7 +347,7 @@ async function init3D() {
       cockpit.setHover(over);
       renderer.domElement.style.cursor = over ? 'pointer' : '';
     }
-    renderer.render(scene, camera);
+    render();
   }
   frame();
 

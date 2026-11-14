@@ -6,11 +6,12 @@ const MONO = '"JetBrains Mono", Consolas, monospace';
 const SANS = '"Inter", "Segoe UI", system-ui, sans-serif';
 const C = { bg: '#04060a', white: '#e8eef5', green: '#3ee07f', cyan: '#62e3f0', amber: '#ffb547', magenta: '#e36bff', yellow: '#ffd23f', tape: '#1d2229' };
 
-function canvasTex(w, h) {
+function canvasTex(w, h, s = 1) {
   const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
+  c.width = w * s;
+  c.height = h * s;
   const ctx = c.getContext('2d');
+  ctx.scale(s, s);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
@@ -63,7 +64,7 @@ function tape(ctx, x, y, w, h, value, step, labelDiv) {
 
 // Primary flight display: artificial horizon, speed and altitude.
 export function makePFD() {
-  const { ctx, tex } = canvasTex(256, 256);
+  const { ctx, tex } = canvasTex(256, 256, 2);
   const draw = (t, roll = 0, pitch = 0) => {
     ctx.fillStyle = C.bg;
     ctx.fillRect(0, 0, 256, 256);
@@ -163,14 +164,15 @@ export function makePFD() {
 }
 
 // Navigation display with a route to the next goal.
-export function makeND() {
-  const { ctx, tex } = canvasTex(256, 256);
+export function makeND({ vsd = false } = {}) {
+  const { ctx, tex } = canvasTex(256, 256, 2);
   const draw = (t, hdg = 270) => {
     ctx.fillStyle = C.bg;
     ctx.fillRect(0, 0, 256, 256);
     const cx = 128;
-    const cy = 226;
-    const r = 178;
+    const cy = vsd ? 182 : 226;
+    const r = vsd ? 140 : 178;
+    const k = r / 178;
     ctx.strokeStyle = C.white;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -207,9 +209,9 @@ export function makeND() {
     // route
     const pts = [
       [cx, cy - 8],
-      [cx + 20, cy - 62],
-      [cx - 16, cy - 112],
-      [cx + 8, cy - 160],
+      [cx + 20 * k, cy - 62 * k],
+      [cx - 16 * k, cy - 112 * k],
+      [cx + 8 * k, cy - 160 * k],
     ];
     ctx.strokeStyle = C.magenta;
     ctx.lineWidth = 2;
@@ -259,10 +261,93 @@ export function makeND() {
     ctx.fillText('SUMMER 2027', 248, 26);
     ctx.textAlign = 'left';
     ctx.fillStyle = C.cyan;
-    ctx.fillText('ARC 40', 8, 246);
+    if (!vsd) {
+      ctx.fillText('ARC 40', 8, 246);
+    } else {
+      // Vertical situation display: terrain profile under the flight path
+      ctx.strokeStyle = 'rgba(232,238,245,.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, 200);
+      ctx.lineTo(256, 200);
+      ctx.stroke();
+      ctx.fillStyle = '#1f7a34';
+      ctx.beginPath();
+      ctx.moveTo(30, 256);
+      for (let x = 30; x <= 256; x += 6) {
+        const u = x + t * 18;
+        ctx.lineTo(x, 246 - (Math.sin(u * 0.05) * 4 + Math.sin(u * 0.13) * 3 + 7));
+      }
+      ctx.lineTo(256, 256);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = C.white;
+      ctx.font = `600 9px ${MONO}`;
+      ctx.textAlign = 'left';
+      ['400', '200', '0'].forEach((v, i) => ctx.fillText(v, 4, 210 + i * 18));
+      ctx.strokeStyle = C.magenta;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(40, 212);
+      ctx.lineTo(256, 212);
+      ctx.stroke();
+      ctx.fillStyle = C.yellow;
+      ctx.beginPath();
+      ctx.moveTo(40, 212);
+      ctx.lineTo(32, 207);
+      ctx.lineTo(32, 217);
+      ctx.closePath();
+      ctx.fill();
+    }
     tex.needsUpdate = true;
   };
   draw(0);
+  return { tex, draw };
+}
+
+// Analog clock showing the time in Paris.
+export function makeClock() {
+  const { ctx, tex } = canvasTex(100, 100, 2);
+  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const hand = (angle, len, width, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-Math.sin(angle) * 6, Math.cos(angle) * 6);
+    ctx.lineTo(Math.sin(angle) * len, -Math.cos(angle) * len);
+    ctx.stroke();
+  };
+  const draw = () => {
+    const [h, m, s] = fmt.format(new Date()).split(':').map(Number);
+    ctx.fillStyle = '#0b0c0e';
+    ctx.fillRect(0, 0, 100, 100);
+    ctx.save();
+    ctx.translate(50, 50);
+    ctx.strokeStyle = C.white;
+    for (let i = 0; i < 60; i++) {
+      const a = (i / 60) * Math.PI * 2;
+      const r1 = i % 5 === 0 ? 38 : 42;
+      ctx.lineWidth = i % 5 === 0 ? 2 : 0.8;
+      ctx.beginPath();
+      ctx.moveTo(Math.sin(a) * r1, -Math.cos(a) * r1);
+      ctx.lineTo(Math.sin(a) * 45, -Math.cos(a) * 45);
+      ctx.stroke();
+    }
+    ctx.fillStyle = C.white;
+    ctx.font = `600 9px ${SANS}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    [[12, 0, -29], [3, 29, 0], [6, 0, 29], [9, -29, 0]].forEach(([n, x, y]) => ctx.fillText(String(n), x, y));
+    ctx.font = `600 5px ${SANS}`;
+    ctx.fillText('PARIS', 0, 14);
+    hand((((h % 12) + m / 60) / 12) * Math.PI * 2, 20, 3, C.white);
+    hand(((m + s / 60) / 60) * Math.PI * 2, 32, 2, C.white);
+    hand((s / 60) * Math.PI * 2, 38, 1, C.amber);
+    ctx.restore();
+    tex.needsUpdate = true;
+  };
+  draw();
   return { tex, draw };
 }
 
@@ -305,7 +390,7 @@ function gauge(ctx, cx, cy, r, frac, text) {
 
 // Engine display.
 export function makeEICAS() {
-  const { ctx, tex } = canvasTex(256, 256);
+  const { ctx, tex } = canvasTex(256, 256, 2);
   const draw = (t) => {
     ctx.fillStyle = C.bg;
     ctx.fillRect(0, 0, 256, 256);
@@ -338,71 +423,9 @@ export function makeEICAS() {
   return { tex, draw };
 }
 
-// Autopilot panel on the glareshield.
-export function makeFCU() {
-  const { ctx, tex } = canvasTex(1024, 72);
-  ctx.fillStyle = '#16191e';
-  ctx.fillRect(0, 0, 1024, 72);
-  [['SPD', '250'], ['HDG', '270'], ['ALT', '35000'], ['V/S', '-----']].forEach(([lbl, val], i) => {
-    const x = 64 + i * 250;
-    ctx.fillStyle = '#9aa3ad';
-    ctx.font = `600 16px ${MONO}`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(lbl, x, 37);
-    ctx.fillStyle = '#08090b';
-    ctx.fillRect(x + 48, 12, 150, 48);
-    ctx.shadowColor = 'rgba(255,170,60,.9)';
-    ctx.shadowBlur = 12;
-    ctx.fillStyle = C.amber;
-    ctx.font = `600 30px ${MONO}`;
-    ctx.fillText(val, x + 60, 38);
-    ctx.shadowBlur = 0;
-  });
-  tex.needsUpdate = true;
-  return { tex };
-}
-
-// Flight computer screens on the pedestal.
-export function makeMCDU(side) {
-  const { ctx, tex } = canvasTex(256, 160);
-  ctx.fillStyle = C.bg;
-  ctx.fillRect(0, 0, 256, 160);
-  const rows =
-    side === 'L'
-      ? { title: 'INIT', l: [['CO RTE', 'AIVC2026'], ['FLT NBR', 'ST2027']], r: [['FROM/TO', 'DEL/PAR'], ['CRZ FL', 'FL350']] }
-      : { title: 'PROG', l: [['TO', ROUTE[ROUTE.length - 1]], ['ETA', '2027']], r: [['CRZ', 'FL350'], ['MODE', 'LEARN']] };
-  ctx.textBaseline = 'middle';
-  ctx.font = `600 14px ${MONO}`;
-  ctx.fillStyle = C.white;
-  ctx.textAlign = 'center';
-  ctx.fillText(rows.title, 128, 16);
-  rows.l.forEach(([lbl, val], i) => {
-    ctx.textAlign = 'left';
-    ctx.font = `11px ${MONO}`;
-    ctx.fillStyle = C.white;
-    ctx.fillText(lbl, 10, 42 + i * 44);
-    ctx.font = `600 15px ${MONO}`;
-    ctx.fillStyle = C.cyan;
-    ctx.fillText(val, 10, 60 + i * 44);
-  });
-  rows.r.forEach(([lbl, val], i) => {
-    ctx.textAlign = 'right';
-    ctx.font = `11px ${MONO}`;
-    ctx.fillStyle = C.white;
-    ctx.fillText(lbl, 246, 42 + i * 44);
-    ctx.font = `600 15px ${MONO}`;
-    ctx.fillStyle = C.green;
-    ctx.fillText(val, 246, 60 + i * 44);
-  });
-  tex.needsUpdate = true;
-  return { tex };
-}
-
 // What the center display shows before you open it.
-export function makeDesktopPreview() {
-  const W = 1000;
-  const H = 640;
+export function makeDesktopPreview(W = 1000, H = 640) {
+  const yOff = (H - 640) / 2;
   const { ctx, tex } = canvasTex(W, H);
   const icons = [
     ['#4f8cff', '#1d3f99', 'about.md'],
@@ -457,14 +480,14 @@ export function makeDesktopPreview() {
     const cx = (W + 120) / 2;
     ctx.textAlign = 'center';
     ctx.fillStyle = '#fff';
-    ctx.font = `700 62px ${SANS}`;
-    ctx.fillText(PROFILE.name, cx, 262);
+    ctx.font = `700 ${Math.min(62, Math.round(W * 0.07))}px ${SANS}`;
+    ctx.fillText(PROFILE.name, cx, 262 + yOff);
     ctx.font = `500 24px ${SANS}`;
     ctx.fillStyle = 'rgba(232,238,245,.85)';
-    ctx.fillText(PROFILE.role, cx, 312);
+    ctx.fillText(PROFILE.role, cx, 312 + yOff);
     // call to action
     const a = 0.55 + 0.45 * Math.sin(t * 3);
-    rrect(ctx, cx - 160, 370, 320, 60, 30);
+    rrect(ctx, cx - 160, 370 + yOff, 320, 60, 30);
     ctx.fillStyle = `rgba(98,227,240,${0.14 * a + 0.04})`;
     ctx.fill();
     ctx.lineWidth = 3;
@@ -472,7 +495,7 @@ export function makeDesktopPreview() {
     ctx.stroke();
     ctx.fillStyle = C.white;
     ctx.font = `600 22px ${MONO}`;
-    ctx.fillText('CLICK TO OPEN', cx, 401);
+    ctx.fillText('CLICK TO OPEN', cx, 401 + yOff);
     // dock
     rrect(ctx, W / 2 - 190, H - 70, 380, 56, 16);
     ctx.fillStyle = 'rgba(10,14,20,.7)';

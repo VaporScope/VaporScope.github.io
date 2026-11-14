@@ -1,8 +1,13 @@
 # Srayan Talukdar · 3D cockpit portfolio
 
-An interactive portfolio: you sit in the jump seat of a cockpit at sunset, and the center display runs a small desktop with my about page, projects, education, skills, CV and contact details.
+An interactive portfolio: you sit in the jump seat of a Boeing 737-800 cockpit at sunset, and the center display runs a small desktop with my about page, projects, education, skills, CV and contact details.
 
-Built with [Three.js](https://threejs.org) and plain HTML, CSS and JavaScript. No build step, no 3D model files.
+Built with [Three.js](https://threejs.org) and plain HTML, CSS and JavaScript. No build step.
+
+## Credits
+
+- Cockpit model: [Boeing 737-800 Cockpit](https://sketchfab.com/3d-models/boeing-737-800-cockpit-d463256f98654b36af019d2d88bd5bbe) by **hakai315**, licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changes: compressed with [gltfpack](https://github.com/zeux/meshoptimizer) (84 MB to 6 MB), seats recolored, live display images added.
+- 3D engine: [Three.js](https://threejs.org) (MIT).
 
 ## Put it online with GitHub Pages (free)
 
@@ -36,10 +41,11 @@ Then open http://localhost:8000.
 
 | File | What it does |
 | --- | --- |
-| `main.js` | Loads the scene, moves the camera, opens the desktop on the center display |
-| `cockpit.js` | Builds the cockpit from simple shapes (panel, screens, yokes, pedestal, overhead) |
-| `screens.js` | Draws the cockpit displays on canvases (flight display, map, engines, autopilot) |
-| `sky.js` | Sunset sky shader and the moving sea of clouds |
+| `main.js` | Loads the scene, lighting, shadows and ambient occlusion; moves the camera; opens the desktop on the center display |
+| `cockpit.js` | Loads the 737 model, recolors the seats and places the live display images on its screens |
+| `cockpit.glb` | The compressed 3D cockpit model |
+| `screens.js` | Draws the live cockpit displays (flight displays, maps, engines) |
+| `sky.js` | Sunset sky and the cloud layer below, drawn by shaders |
 | `os.js` | The desktop: windows, dock, terminal |
 | `content.js` | All the text |
 

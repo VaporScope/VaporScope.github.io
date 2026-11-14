@@ -52,13 +52,14 @@ export const PROJECTS = [
     date: 'Nov 2026',
     url: 'https://github.com/VaporScope/VaporScope.github.io',
     urlLabel: 'View the code',
-    summary: 'A cockpit you can sit in, right in the browser. The center display runs a small desktop with my portfolio.',
+    summary: 'A 737 cockpit you can sit in, right in the browser. The center display runs a small desktop with my portfolio.',
     points: [
       'Built with Three.js and plain HTML, CSS and JavaScript, with Claude as a coding assistant.',
-      'The whole cockpit is generated in code, with no 3D model files.',
+      'Uses a free 737-800 cockpit model by hakai315 (CC BY 4.0), compressed from 84 MB to 6 MB with gltfpack.',
+      'Live flight displays drawn in code, sunset lighting with real-time shadows and ambient occlusion.',
       'Hosted for free on GitHub Pages.',
     ],
-    tags: ['Three.js', 'JavaScript', 'HTML / CSS', 'GitHub Pages'],
+    tags: ['Three.js', 'JavaScript', 'glTF / 3D', 'GitHub Pages'],
   },
 ];
 
